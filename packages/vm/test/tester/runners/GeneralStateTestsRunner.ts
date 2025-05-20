@@ -13,14 +13,12 @@ import {
 } from '@ethereumjs/util'
 import { createVerkleTree } from '@ethereumjs/verkle'
 import * as verkle from 'micro-eth-signer/verkle'
-import { assert } from 'vitest'
-
-import { createVM, runTx } from '../../../src/index.ts'
-import { makeBlockFromEnv, makeTx, setupPreConditions } from '../../util.ts'
 
 import type { StateManagerInterface } from '@ethereumjs/common'
 import type { VerkleTree } from '@ethereumjs/verkle'
 import type * as tape from 'tape'
+import { createVM, runTx } from '../../../src/index.ts'
+import { makeBlockFromEnv, makeTx, setupPreConditions } from '../../util.ts'
 const loadVerkleCrypto = () => Promise.resolve(verkle)
 
 function parseTestCases(
@@ -77,7 +75,12 @@ function parseTestCases(
   return testCases
 }
 
-async function runTestCase(options: any, testData: any, t: tape.Test | undefined) {
+function isTape(t: tape.Test | Chai.AssertStatic): t is tape.Test {
+  // tape.Test has .comment, chai.AssertStatic does not
+  return typeof (t as tape.Test).comment === 'function'
+}
+
+async function runTestCase(options: any, testData: any, t: tape.Test | Chai.AssertStatic) {
   const begin = Date.now()
   // Copy the common object to not create long-lasting
   // references in memory which might prevent GC
@@ -148,7 +151,7 @@ async function runTestCase(options: any, testData: any, t: tape.Test | undefined
       opName: e.opcode.name,
     }
 
-    t && t.comment(JSON.stringify(opTrace))
+    isTape(t) && t.comment(JSON.stringify(opTrace))
     resolve?.()
   }
 
@@ -156,7 +159,7 @@ async function runTestCase(options: any, testData: any, t: tape.Test | undefined
     const stateRoot = {
       stateRoot: bytesToHex(await vm.stateManager.getStateRoot()),
     }
-    t && t.comment(JSON.stringify(stateRoot))
+    isTape(t) && t.comment(JSON.stringify(stateRoot))
     resolve?.()
   }
 
@@ -190,12 +193,13 @@ async function runTestCase(options: any, testData: any, t: tape.Test | undefined
   const end = Date.now()
   const timeSpent = `${(end - begin) / 1000} secs`
 
-  t && t.ok(stateRootsAreEqual, `[ ${timeSpent} ] the state roots should match (${execInfo})`)
+  isTape(t) &&
+    t.ok(stateRootsAreEqual, `[ ${timeSpent} ] the state roots should match (${execInfo})`)
   const msg = `error running test case for fork: ${options.forkConfigTestSuite}`
-  if (t !== undefined) {
+  if (isTape(t)) {
     t.ok(stateRootsAreEqual, `[ ${timeSpent} ] the state roots should match (${execInfo})`)
   } else {
-    assert.isTrue(stateRootsAreEqual, msg)
+    t.isTrue(stateRootsAreEqual, msg)
   }
 
   vm.evm.events!.removeListener('step', stepHandler)
@@ -206,7 +210,7 @@ async function runTestCase(options: any, testData: any, t: tape.Test | undefined
   return parseFloat(timeSpent)
 }
 
-export async function runStateTest(options: any, testData: any, t: tape.Test | undefined) {
+export async function runStateTest(options: any, testData: any, t: tape.Test | Chai.AssertStatic) {
   const testCases = parseTestCases(
     options.forkConfigTestSuite,
     testData,
@@ -215,7 +219,7 @@ export async function runStateTest(options: any, testData: any, t: tape.Test | u
     options.value,
   )
   if (testCases.length === 0) {
-    t && t.comment(`No ${options.forkConfigTestSuite} post state defined, skip test`)
+    isTape(t) && t.comment(`No ${options.forkConfigTestSuite} post state defined, skip test`)
     return
   }
   for (const testCase of testCases) {
@@ -224,7 +228,8 @@ export async function runStateTest(options: any, testData: any, t: tape.Test | u
       for (let x = 0; x < options.reps; x++) {
         totalTimeSpent += await runTestCase(options, testCase, t)
       }
-      t && t.comment(`Average test run: ${(totalTimeSpent / options.reps).toLocaleString()} s`)
+      isTape(t) &&
+        t.comment(`Average test run: ${(totalTimeSpent / options.reps).toLocaleString()} s`)
     } else {
       await runTestCase(options, testCase, t)
     }
