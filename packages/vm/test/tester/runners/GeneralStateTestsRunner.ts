@@ -232,6 +232,7 @@ export async function runStateTest(options: any, testData: any, t: tape.Test | C
         t.comment(`Average test run: ${(totalTimeSpent / options.reps).toLocaleString()} s`)
     } else {
       await runTestCase(options, testCase, t)
+      options.testCount++
     }
   }
 }
