@@ -216,7 +216,7 @@ for (const dir of dirs) {
       testGetterArgs,
     )
   } catch (e) {
-    console.log(e) // TODO failing to discover LegacyTests paths that are hardcoded in getTestDirs
+    console.log(e)
     continue
   }
 
